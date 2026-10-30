@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI ANPR & E-Challan Traffic Enforcement Command Center</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="dark-theme">
+  <!-- Top Navigation Header -->
+  <header class="command-header">
+    <div class="header-left">
+      <div class="police-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M12 8v4"/>
+          <path d="M12 16h.01"/>
+        </svg>
+      </div>
+      <div class="header-title">
+        <h1>TRAFFIC AI COMMAND CENTER</h1>
+        <div class="header-subtitle">AUTOMATIC NUMBER PLATE RECOGNITION &amp; E-CHALLAN SYSTEM</div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="system-badge live-pulse">
+        <span class="pulse-dot"></span>
+        <span class="badge-text">SURVEILLANCE ACTIVE</span>
+      </div>
+      <div id="signalPill" class="signal-badge signal-red">
+        <span class="signal-indicator"></span>
+        <span id="signalText">SIGNAL: RED</span>
+      </div>
+      <button id="toggleSignalBtn" class="btn btn-secondary btn-sm">
+        Switch Signal
+      </button>
+    </div>
+
+    <div class="header-right">
+      <div class="digital-clock" id="digitalClock">--:--:-- IST</div>
+      <button id="soundToggleBtn" class="btn-icon" title="Toggle Alert Sound">
+        <span id="soundIcon">🔊</span>
+      </button>
+      <button id="testViolationBtn" class="btn btn-primary btn-sm">
+        + Test Violation
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI Metrics Banner -->
+  <section class="kpi-banner">
+    <div class="kpi-card">
+      <div class="kpi-icon icon-cyan">🚗</div>
+      <div class="kpi-data">
+        <span class="kpi-label">VEHICLES MONITORED</span>
+        <span class="kpi-value" id="kpiVehicles">0</span>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon icon-rose">🚨</div>
+      <div class="kpi-data">
+        <span class="kpi-label">VIOLATIONS DETECTED</span>
+        <span class="kpi-value" id="kpiViolations">0</span>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon icon-amber">₹</div>
+      <div class="kpi-data">
+        <span class="kpi-label">TOTAL FINES IMPOSED</span>
+        <span class="kpi-value" id="kpiFines">₹0</span>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon icon-emerald">⚡</div>
+      <div class="kpi-data">
+        <span class="kpi-label">ANPR ACCURACY RATE</span>
+        <span class="kpi-value" id="kpiAccuracy">98.4%</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Grid: Surveillance Feed & Live Alerts -->
+  <main class="dashboard-grid">
+    <!-- Left Column: Video Surveillance & ROI Controls -->
+    <section class="panel surveillance-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="title-icon">📹</span>
+          <h2>CAM-01 • NH-48 EXPRESSWAY INTERSECTION</h2>
+        </div>
+        <div class="panel-actions">
+          <span class="meta-tag">1280x720 @ 30 FPS</span>
+          <span class="meta-tag model-tag">YOLOv8 + ByteTrack</span>
+        </div>
+      </div>
+
+      <div class="feed-wrapper" id="feedWrapper">
+        <img id="videoFeed" src="/video_feed" alt="Live MJPEG Traffic Stream" crossorigin="anonymous">
+        <canvas id="roiCanvas"></canvas>
+        <div class="feed-crosshair"></div>
+      </div>
+
+      <!-- ROI Drawing Toolbar -->
+      <div class="roi-toolbar">
+        <div class="roi-instructions">
+          <span class="info-badge">ROI Tool:</span>
+          <span>Click on video to set <strong>Stop Line</strong> endpoints</span>
+        </div>
+        <div class="roi-buttons">
+          <button id="drawRoiBtn" class="btn btn-outline btn-sm">Draw Stop Line</button>
+          <button id="clearRoiBtn" class="btn btn-outline btn-sm">Reset Line</button>
+          <button id="saveRoiBtn" class="btn btn-primary btn-sm">Save ROI</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Real-Time Violation Alert Feed -->
+    <section class="panel alert-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="title-icon">⚡</span>
+          <h2>REAL-TIME VIOLATION STREAM</h2>
+        </div>
+        <div class="ws-status" id="wsStatus">
+          <span class="ws-dot"></span>
+          <span id="wsText">CONNECTED</span>
+        </div>
+      </div>
+
+      <div class="alerts-container" id="alertsContainer">
+        <!-- Live WebSocket alert cards will be injected here -->
+        <div class="no-alerts-placeholder" id="noAlertsMsg">
+          <div class="radar-scan"></div>
+          <p>Monitoring traffic stream for infractions...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Section: Challan Ledger & Data Table -->
+  <section class="panel ledger-panel">
+    <div class="panel-header table-header">
+      <div class="panel-title">
+        <span class="title-icon">📑</span>
+        <h2>E-CHALLAN AUDIT REGISTRY</h2>
+      </div>
+
+      <!-- Table Filters -->
+      <div class="filter-group">
+        <input type="text" id="plateSearchInput" class="search-input" placeholder="Search Plate (e.g. DL 01 AB 1234)...">
+        
+        <select id="violationFilter" class="select-input">
+          <option value="ALL">All Violations</option>
+          <option value="NO_HELMET">No Helmet</option>
+          <option value="RED_LIGHT_VIOLATION">Red Light Violation</option>
+          <option value="TRIPLE_RIDING">Triple Riding</option>
+          <option value="WRONG_WAY">Wrong Way</option>
+        </select>
+
+        <select id="statusFilter" class="select-input">
+          <option value="ALL">All Statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="PAID">Paid</option>
+          <option value="DISPUTED">Disputed</option>
+        </select>
+
+        <button id="refreshTableBtn" class="btn btn-secondary btn-sm">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="table-responsive">
+      <table class="challan-table">
+        <thead>
+          <tr>
+            <th>CHALLAN ID</th>
+            <th>TIMESTAMP</th>
+            <th>VEHICLE PLATE</th>
+            <th>VEHICLE TYPE</th>
+            <th>OFFENSE</th>
+            <th>FINE (INR)</th>
+            <th>EVIDENCE</th>
+            <th>STATUS</th>
+            <th>ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody id="challanTableBody">
+          <!-- Populated dynamically via Fetch API -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- E-Challan Official Inspection & Print Modal -->
+  <div class="modal-backdrop" id="challanModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>OFFICIAL MOTOR VEHICLE E-CHALLAN</h3>
+          <span class="gov-text">MINISTRY OF ROAD TRANSPORT &amp; HIGHWAYS • TRAFFIC POLICE</span>
+        </div>
+        <button class="modal-close" id="closeModalBtn">&times;</button>
+      </div>
+
+      <div class="modal-body" id="modalPrintArea">
+        <div class="challan-notice-header">
+          <div class="challan-barcode">|||||||||||||||||||||||||||||||||</div>
+          <div class="challan-meta-header">
+            <h4 id="modalChallanNo">ECH-20261030-0000</h4>
+            <span id="modalChallanDate">--</span>
+          </div>
+        </div>
+
+        <div class="challan-grid">
+          <!-- Evidence Imagery -->
+          <div class="evidence-box">
+            <div class="evidence-view">
+              <label>FULL SCENE EVIDENCE SNAPSHOT</label>
+              <img id="modalEvidenceFrame" src="" alt="Evidence Frame">
+            </div>
+            <div class="plate-view">
+              <label>ANPR CROPPED REGISTRATION PLATE</label>
+              <div class="plate-highlight">
+                <img id="modalPlateCrop" src="" alt="Plate Crop">
+                <div class="plate-badge-display" id="modalPlateText">--</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Offense Particulars -->
+          <div class="particulars-box">
+            <h4>OFFENSE PARTICULARS</h4>
+            <div class="particular-row">
+              <span class="label">Registration No:</span>
+              <span class="val font-mono" id="modalRegNo">--</span>
+            </div>
+            <div class="particular-row">
+              <span class="label">Vehicle Class:</span>
+              <span class="val" id="modalVehicleClass">--</span>
+            </div>
+            <div class="particular-row">
+              <span class="label">Violation Rule:</span>
+              <span class="val violation-tag" id="modalViolationType">--</span>
+            </div>
+            <div class="particular-row">
+              <span class="label">Statutory Fine:</span>
+              <span class="val fine-val" id="modalFine">₹--</span>
+            </div>
+            <div class="particular-row">
+              <span class="label">Location:</span>
+              <span class="val" id="modalLocation">--</span>
+            </div>
+            <div class="particular-row">
+              <span class="label">Payment Status:</span>
+              <span class="val status-pill" id="modalStatus">PENDING</span>
+            </div>
+            <div class="particular-row">
+              <span class="label">ANPR Confidence:</span>
+              <span class="val font-mono" id="modalConfidence">98.5%</span>
+            </div>
+
+            <div class="payment-notice">
+              ⚠️ Penalty must be remitted within 30 days under the Motor Vehicles (Amendment) Act.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="modalPayBtn" class="btn btn-success">Mark as Paid</button>
+        <button id="modalPrintBtn" class="btn btn-secondary">Print Challan Receipt</button>
+        <button id="modalDismissBtn" class="btn btn-outline">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
+
